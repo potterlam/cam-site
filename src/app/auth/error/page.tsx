@@ -7,7 +7,8 @@ import { Suspense } from "react";
 const ERROR_MESSAGES: Record<string, string> = {
   Configuration: "There is a server configuration error. Please contact support.",
   AccessDenied: "You do not have access to this resource.",
-  Verification: "The sign-in link has expired or has already been used. Please request a new one.",
+  EMAIL_NOT_VERIFIED: "Please verify your email before signing in. Check your inbox.",
+  CredentialsSignin: "Invalid email or password.",
   Default: "An unexpected error occurred. Please try again.",
 };
 

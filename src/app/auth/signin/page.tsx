@@ -25,7 +25,7 @@ export default function SignInPage() {
 
     setLoading(false);
 
-    if (result?.error === "EMAIL_NOT_VERIFIED" || result?.error?.includes("EMAIL_NOT_VERIFIED")) {
+    if (result?.error === "EMAIL_NOT_VERIFIED") {
       setError("Please verify your email first. Check your inbox for the verification link.");
     } else if (result?.error) {
       setError("Invalid email or password.");
