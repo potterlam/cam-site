@@ -32,9 +32,10 @@ export async function POST(req: NextRequest) {
       data: { identifier, token, expires },
     });
 
-    const proto = req.headers.get("x-forwarded-proto") ?? "https";
-    const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "localhost:3000";
-    const baseUrl = `${proto}://${host}`;
+    const baseUrl =
+      process.env.RENDER_EXTERNAL_URL ??
+      process.env.NEXTAUTH_URL ??
+      `${req.headers.get("x-forwarded-proto") ?? "https"}://${req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "localhost:3000"}`;
     await sendPasswordResetEmail(email, token, baseUrl);
 
     return NextResponse.json({ ok: true });

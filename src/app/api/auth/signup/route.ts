@@ -52,9 +52,11 @@ export async function POST(req: NextRequest) {
     });
 
     // Send verification email via Resend
-    const proto = req.headers.get("x-forwarded-proto") ?? "https";
-    const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "localhost:3000";
-    const baseUrl = `${proto}://${host}`;
+    // RENDER_EXTERNAL_URL is auto-injected by Render (e.g. https://live-party-game.onrender.com)
+    const baseUrl =
+      process.env.RENDER_EXTERNAL_URL ??
+      process.env.NEXTAUTH_URL ??
+      `${req.headers.get("x-forwarded-proto") ?? "https"}://${req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "localhost:3000"}`;
     await sendVerificationEmail(email, token, baseUrl);
 
     return NextResponse.json(
