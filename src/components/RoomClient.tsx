@@ -239,8 +239,8 @@ export default function RoomClient({ roomCode, initialRoom, punishments }: RoomC
               🎮 Join as Player
             </button>
           )}
-          {/* Switch to Spectator */}
-          {myRole === "PLAYER" && myUserId !== room.creatorId && (
+          {/* Switch to Spectator — available to all players including host */}
+          {myRole === "PLAYER" && (
             <button
               onClick={() => handleChangeRole("SPECTATOR")}
               disabled={roleLoading}
@@ -331,8 +331,8 @@ export default function RoomClient({ roomCode, initialRoom, punishments }: RoomC
             </div>
           )}
 
-          {/* Game Controls — players see game; spectators see join prompt */}
-          {myRole === "PLAYER" && !gameResult && (
+          {/* Game Controls — players + host (even as spectator) see game controls */}
+          {(myRole === "PLAYER" || isHost) && !gameResult && (
             <div className="rounded-xl border border-gray-700 bg-gray-800 p-4 space-y-3">
               {room.gameType === "DICE_COMPARE" && (
                 <DiceGame
