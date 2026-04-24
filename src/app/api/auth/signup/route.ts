@@ -4,20 +4,13 @@ import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 import { sendVerificationEmail } from "@/lib/email";
 
-const INTERNAL_HOST = /localhost|127\.0\.0\.1|0\.0\.0\.0/;
-
-function getSiteUrl(req: NextRequest): string {
-  // Check env vars but skip any that contain localhost (can be auto-set by Next.js internally)
+const INTERNAL = /localhost|127\.0\.0\.1|0\.0\.0\.0/;
+const SITE_BASE_URL = (() => {
   for (const v of [process.env.SITE_URL, process.env.RENDER_EXTERNAL_URL, process.env.NEXTAUTH_URL]) {
-    if (v && !INTERNAL_HOST.test(v)) return v.replace(/\/$/, "");
+    if (v && !INTERNAL.test(v)) return v.replace(/\/$/, "");
   }
-  // Try request headers
-  const proto = req.headers.get("x-forwarded-proto") ?? "https";
-  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "";
-  if (host && !INTERNAL_HOST.test(host)) return `${proto}://${host}`;
-  // Hard fallback — emails must never contain localhost
   return "https://live-party-game.onrender.com";
-}
+})();
 
 export async function POST(req: NextRequest) {
   try {
@@ -45,10 +38,9 @@ export async function POST(req: NextRequest) {
         const token = randomBytes(32).toString("hex");
         const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
         await db.verificationToken.create({ data: { identifier: email, token, expires } });
-        const baseUrl = getSiteUrl(req);
-        console.log("[Signup/Resend] Using baseUrl:", baseUrl);
+        console.log("[Signup/Resend] Using baseUrl:", SITE_BASE_URL);
         let emailSent = true;
-        try { await sendVerificationEmail(email, token, baseUrl); } catch { emailSent = false; }
+        try { await sendVerificationEmail(email, token, SITE_BASE_URL); } catch { emailSent = false; }
         return NextResponse.json(
           { ok: true, userId: existing.id, emailSent, resent: true },
           { status: 200 }
@@ -75,11 +67,10 @@ export async function POST(req: NextRequest) {
     });
 
     // Step 3: Try to send email — failure does NOT block account creation
-    const baseUrl = getSiteUrl(req);
-    console.log("[Signup] Using baseUrl:", baseUrl);
+    console.log("[Signup] Using baseUrl:", SITE_BASE_URL);
     let emailSent = true;
     try {
-      await sendVerificationEmail(email, token, baseUrl);
+      await sendVerificationEmail(email, token, SITE_BASE_URL);
     } catch (emailErr) {
       emailSent = false;
       console.error("[Signup] Email send failed (account still created):", emailErr);

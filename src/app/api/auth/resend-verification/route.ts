@@ -3,17 +3,13 @@ import { db } from "@/lib/db";
 import { randomBytes } from "crypto";
 import { sendVerificationEmail } from "@/lib/email";
 
-const INTERNAL_HOST = /localhost|127\.0\.0\.1|0\.0\.0\.0/;
-
-function getSiteUrl(req: NextRequest): string {
+const INTERNAL = /localhost|127\.0\.0\.1|0\.0\.0\.0/;
+const SITE_BASE_URL = (() => {
   for (const v of [process.env.SITE_URL, process.env.RENDER_EXTERNAL_URL, process.env.NEXTAUTH_URL]) {
-    if (v && !INTERNAL_HOST.test(v)) return v.replace(/\/$/, "");
+    if (v && !INTERNAL.test(v)) return v.replace(/\/$/, "");
   }
-  const proto = req.headers.get("x-forwarded-proto") ?? "https";
-  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "";
-  if (host && !INTERNAL_HOST.test(host)) return `${proto}://${host}`;
   return "https://live-party-game.onrender.com";
-}
+})();
 
 export async function POST(req: NextRequest) {
   try {
@@ -43,9 +39,8 @@ export async function POST(req: NextRequest) {
       data: { identifier: email, token, expires },
     });
 
-    const baseUrl = getSiteUrl(req);
-    console.log("[ResendVerification] Using baseUrl:", baseUrl);
-    await sendVerificationEmail(email, token, baseUrl);
+    console.log("[ResendVerification] Using baseUrl:", SITE_BASE_URL);
+    await sendVerificationEmail(email, token, SITE_BASE_URL);
 
     return NextResponse.json({ ok: true });
   } catch (err) {

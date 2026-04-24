@@ -3,17 +3,13 @@ import { db } from "@/lib/db";
 import { randomBytes } from "crypto";
 import { sendPasswordResetEmail } from "@/lib/email";
 
-const INTERNAL_HOST = /localhost|127\.0\.0\.1|0\.0\.0\.0/;
-
-function getSiteUrl(req: NextRequest): string {
+const INTERNAL = /localhost|127\.0\.0\.1|0\.0\.0\.0/;
+const SITE_BASE_URL = (() => {
   for (const v of [process.env.SITE_URL, process.env.RENDER_EXTERNAL_URL, process.env.NEXTAUTH_URL]) {
-    if (v && !INTERNAL_HOST.test(v)) return v.replace(/\/$/, "");
+    if (v && !INTERNAL.test(v)) return v.replace(/\/$/, "");
   }
-  const proto = req.headers.get("x-forwarded-proto") ?? "https";
-  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "";
-  if (host && !INTERNAL_HOST.test(host)) return `${proto}://${host}`;
   return "https://live-party-game.onrender.com";
-}
+})();
 
 export async function POST(req: NextRequest) {
   try {
@@ -44,9 +40,8 @@ export async function POST(req: NextRequest) {
       data: { identifier, token, expires },
     });
 
-    const baseUrl = getSiteUrl(req);
-    console.log("[ForgotPassword] Using baseUrl:", baseUrl);
-    await sendPasswordResetEmail(email, token, baseUrl);
+    console.log("[ForgotPassword] Using baseUrl:", SITE_BASE_URL);
+    await sendPasswordResetEmail(email, token, SITE_BASE_URL);
 
     return NextResponse.json({ ok: true });
   } catch (err) {
