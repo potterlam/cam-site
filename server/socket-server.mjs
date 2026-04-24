@@ -91,6 +91,15 @@ io.on("connection", (socket) => {
     io.to(roomCode).emit("game-result", { loserId, loserName, punishment });
   });
 
+  // ─── Chat ─────────────────────────────────────────────────────────────────
+  socket.on("chat-message", ({ roomCode, userId, userName, text }) => {
+    if (!text || typeof text !== "string") return;
+    const sanitized = text.trim().slice(0, 300); // max 300 chars
+    if (!sanitized) return;
+    const msg = { userId, userName, text: sanitized, timestamp: Date.now() };
+    io.to(roomCode).emit("chat-message", msg);
+  });
+
   // ─── Chat / Reactions ─────────────────────────────────────────────────────
   socket.on("reaction", ({ roomCode, userId, userName, emoji }) => {
     io.to(roomCode).emit("reaction", { userId, userName, emoji });

@@ -7,6 +7,7 @@ import { useSocket } from "@/hooks/useSocket";
 import { useCamera } from "@/hooks/useCamera";
 import { useWebRTC } from "@/hooks/useWebRTC";
 import VideoTile from "@/components/VideoTile";
+import ChatPanel from "@/components/ChatPanel";
 import { DiceGame, RPSGame, RouletteGame } from "@/components/Games";
 import type { RPSMove } from "@/lib/games";
 
@@ -245,8 +246,8 @@ export default function RoomClient({ roomCode, initialRoom, punishments }: RoomC
         </div>
 
         {/* Game Panel */}
-        <aside className="w-80 border-l border-gray-800 bg-gray-900 flex flex-col p-4 gap-4 overflow-auto">
-          <h2 className="font-bold text-lg">Game Panel</h2>
+        <aside className="w-80 border-l border-gray-800 bg-gray-900 flex flex-col p-4 gap-4 overflow-hidden">
+          <h2 className="font-bold text-lg shrink-0">Game Panel</h2>
 
           {/* Game Result Banner */}
           {gameResult && (
@@ -308,7 +309,7 @@ export default function RoomClient({ roomCode, initialRoom, punishments }: RoomC
           )}
 
           {/* Member list */}
-          <div>
+          <div className="shrink-0">
             <h3 className="text-sm font-medium text-gray-400 mb-2">Members ({members.length})</h3>
             <div className="space-y-1">
               {members.map((m) => (
@@ -319,6 +320,16 @@ export default function RoomClient({ roomCode, initialRoom, punishments }: RoomC
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Chat */}
+          <div className="flex-1 border-t border-gray-800 pt-3 min-h-0">
+            <ChatPanel
+              socket={socket}
+              roomCode={roomCode}
+              myUserId={myUserId}
+              myName={myName}
+            />
           </div>
         </aside>
       </div>

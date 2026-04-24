@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import LobbyChatClient from "@/components/LobbyChatClient";
 
 export default async function RoomsPage() {
   const session = await auth();
@@ -65,6 +66,11 @@ export default async function RoomsPage() {
           })}
         </div>
       )}
+
+      <LobbyChatClient
+        userId={session.user.id}
+        userName={session.user.name || session.user.email || "Player"}
+      />
     </main>
   );
 }
