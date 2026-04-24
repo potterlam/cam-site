@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "npx prisma db push && npx prisma generate && next build",
     "seed": "npx tsx prisma/seed.ts",
-    "start": "node server.mjs",
+    "start": "next start",
     "lint": "eslint",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",

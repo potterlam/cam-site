@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
 
-// In production the socket runs on the same origin as Next.js (combined server).
-// In dev, fall back to NEXT_PUBLIC_SOCKET_URL or localhost:3001 (separate socket server).
+// Socket server is deployed at a separate Render service.
+// Use env var if set (build-time baked), otherwise fall back to the known production URL.
 const SOCKET_URL =
-  typeof window !== "undefined" && process.env.NODE_ENV === "production"
-    ? window.location.origin
-    : process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
+  process.env.NEXT_PUBLIC_SOCKET_URL ||
+  (typeof window !== "undefined" && window.location.hostname !== "localhost"
+    ? "https://live-party-socket.onrender.com"
+    : "http://localhost:3001");
 
 export interface RoomMemberInfo {
   userId: string;
