@@ -13,7 +13,7 @@ const config: NextAuthConfig = {
       sendVerificationRequest: async ({ identifier, url, provider }) => {
         const { Resend: ResendClient } = await import("resend");
         const resend = new ResendClient(provider.apiKey);
-        await resend.emails.send({
+        const { error } = await resend.emails.send({
           from: provider.from!,
           to: identifier,
           subject: "Sign in to Cam Party Game",
@@ -28,6 +28,11 @@ const config: NextAuthConfig = {
             </div>
           `,
         });
+        if (error) {
+          console.error("[Resend] Failed to send email to", identifier, error);
+          throw new Error(`Email send failed: ${error.message}`);
+        }
+        console.log("[Resend] Verification email sent to", identifier);
       },
     }),
   ],
