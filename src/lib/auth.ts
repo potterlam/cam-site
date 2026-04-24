@@ -1,11 +1,7 @@
-import NextAuth, { type NextAuthConfig, CredentialsSignin } from "next-auth";
+import NextAuth, { type NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
-
-class EmailNotVerifiedError extends CredentialsSignin {
-  code = "EMAIL_NOT_VERIFIED";
-}
 
 const config: NextAuthConfig = {
   trustHost: true,
@@ -31,11 +27,6 @@ const config: NextAuthConfig = {
           user.password
         );
         if (!passwordMatch) return null;
-
-        // Block login if email is not verified
-        if (!user.emailVerified) {
-          throw new EmailNotVerifiedError();
-        }
 
         return { id: user.id, email: user.email, name: user.name };
       },

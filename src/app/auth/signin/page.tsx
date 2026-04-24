@@ -1,16 +1,22 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 export default function SignInPage() {
   const router = useRouter();
+  const [registered, setRegistered] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("registered") === "1") setRegistered(true);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -25,9 +31,7 @@ export default function SignInPage() {
 
     setLoading(false);
 
-    if (result?.error === "EMAIL_NOT_VERIFIED") {
-      setError("Please verify your email first. Check your inbox for the verification link.");
-    } else if (result?.error) {
+    if (result?.error) {
       setError("Invalid email or password.");
     } else {
       router.push("/");
@@ -42,6 +46,11 @@ export default function SignInPage() {
         <p className="mb-8 text-gray-400">Sign in to play with your friends on live cam.</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {registered && (
+            <div className="rounded-lg bg-green-900/40 border border-green-700 px-4 py-3 text-sm text-green-300">
+              Account created! You can sign in now.
+            </div>
+          )}
           {error && (
             <div className="rounded-lg bg-red-900/40 border border-red-700 px-4 py-3 text-sm text-red-300">
               {error}

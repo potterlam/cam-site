@@ -43,8 +43,8 @@ export default function SignUpPage() {
       return;
     }
 
-    // Redirect to check-email page — user must verify before signing in
-    router.push("/auth/check-email");
+    // Redirect to sign in — account is active immediately
+    router.push("/auth/signin?registered=1");
   }
 
   return (

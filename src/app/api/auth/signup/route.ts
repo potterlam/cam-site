@@ -1,16 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
-import { randomBytes } from "crypto";
-import { sendVerificationEmail } from "@/lib/email";
-
-const INTERNAL = /localhost|127\.0\.0\.1|0\.0\.0\.0/;
-const SITE_BASE_URL = (() => {
-  for (const v of [process.env.SITE_URL, process.env.RENDER_EXTERNAL_URL, process.env.NEXTAUTH_URL]) {
-    if (v && !INTERNAL.test(v)) return v.replace(/\/$/, "");
-  }
-  return "https://live-party-game.onrender.com";
-})();
 
 export async function POST(req: NextRequest) {
   try {
@@ -32,20 +22,6 @@ export async function POST(req: NextRequest) {
 
     const existing = await db.user.findUnique({ where: { email } });
     if (existing) {
-      // Account exists but not verified — resend verification instead of 409
-      if (!existing.emailVerified) {
-        await db.verificationToken.deleteMany({ where: { identifier: email } });
-        const token = randomBytes(32).toString("hex");
-        const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-        await db.verificationToken.create({ data: { identifier: email, token, expires } });
-        console.log("[Signup/Resend] Using baseUrl:", SITE_BASE_URL);
-        let emailSent = true;
-        try { await sendVerificationEmail(email, token, SITE_BASE_URL); } catch { emailSent = false; }
-        return NextResponse.json(
-          { ok: true, userId: existing.id, emailSent, resent: true },
-          { status: 200 }
-        );
-      }
       return NextResponse.json(
         { error: "An account with this email already exists." },
         { status: 409 }
@@ -54,30 +30,12 @@ export async function POST(req: NextRequest) {
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Step 1: Create user
     const user = await db.user.create({
-      data: { name, email, password: hashedPassword, emailVerified: null },
+      data: { name, email, password: hashedPassword, emailVerified: new Date() },
     });
-
-    // Step 2: Generate token
-    const token = randomBytes(32).toString("hex");
-    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    await db.verificationToken.create({
-      data: { identifier: email, token, expires },
-    });
-
-    // Step 3: Try to send email — failure does NOT block account creation
-    console.log("[Signup] Using baseUrl:", SITE_BASE_URL);
-    let emailSent = true;
-    try {
-      await sendVerificationEmail(email, token, SITE_BASE_URL);
-    } catch (emailErr) {
-      emailSent = false;
-      console.error("[Signup] Email send failed (account still created):", emailErr);
-    }
 
     return NextResponse.json(
-      { ok: true, userId: user.id, emailSent },
+      { ok: true, userId: user.id },
       { status: 201 }
     );
   } catch (err) {
