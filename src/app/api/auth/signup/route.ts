@@ -52,7 +52,10 @@ export async function POST(req: NextRequest) {
     });
 
     // Send verification email via Resend
-    await sendVerificationEmail(email, token);
+    const proto = req.headers.get("x-forwarded-proto") ?? "https";
+    const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "localhost:3000";
+    const baseUrl = `${proto}://${host}`;
+    await sendVerificationEmail(email, token, baseUrl);
 
     return NextResponse.json(
       { ok: true, userId: user.id, message: "Please check your email to verify your account." },

@@ -2,10 +2,9 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev";
-const BASE_URL = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 
-export async function sendVerificationEmail(email: string, token: string) {
-  const verifyUrl = `${BASE_URL}/api/auth/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
+export async function sendVerificationEmail(email: string, token: string, baseUrl: string) {
+  const verifyUrl = `${baseUrl}/api/auth/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
 
   const { error } = await resend.emails.send({
     from: FROM,
@@ -34,8 +33,8 @@ export async function sendVerificationEmail(email: string, token: string) {
   console.log("[Email] Verification email sent to", email);
 }
 
-export async function sendPasswordResetEmail(email: string, token: string) {
-  const resetUrl = `${BASE_URL}/auth/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
+export async function sendPasswordResetEmail(email: string, token: string, baseUrl: string) {
+  const resetUrl = `${baseUrl}/auth/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
 
   const { error } = await resend.emails.send({
     from: FROM,
