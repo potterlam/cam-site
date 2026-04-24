@@ -1,12 +1,10 @@
 import NextAuth, { type NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { PrismaAdapter } from "@auth/prisma-adapter";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
 
 const config: NextAuthConfig = {
   trustHost: true,
-  adapter: PrismaAdapter(db),
   session: { strategy: "jwt" },
   providers: [
     Credentials({

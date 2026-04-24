@@ -5,7 +5,7 @@ const FROM = process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev";
 const BASE_URL = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 
 export async function sendVerificationEmail(email: string, token: string) {
-  const verifyUrl = `${BASE_URL}/auth/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
+  const verifyUrl = `${BASE_URL}/api/auth/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
 
   const { error } = await resend.emails.send({
     from: FROM,
