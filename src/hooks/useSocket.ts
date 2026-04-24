@@ -21,6 +21,7 @@ interface UseSocketOptions {
 
 export function useSocket({ roomCode, userId, userName, role }: UseSocketOptions) {
   const socketRef = useRef<Socket | null>(null);
+  const [socket, setSocket] = useState<Socket | null>(null);
   const [members, setMembers] = useState<RoomMemberInfo[]>([]);
   const [isConnected, setIsConnected] = useState(false);
 
@@ -29,11 +30,15 @@ export function useSocket({ roomCode, userId, userName, role }: UseSocketOptions
     socketRef.current = socket;
 
     socket.on("connect", () => {
+      setSocket(socket);
       setIsConnected(true);
       socket.emit("join-room", { roomCode, userId, userName, role });
     });
 
-    socket.on("disconnect", () => setIsConnected(false));
+    socket.on("disconnect", () => {
+      setIsConnected(false);
+      setSocket(null);
+    });
 
     socket.on("room-members", (memberList: RoomMemberInfo[]) => {
       setMembers(memberList);
@@ -49,6 +54,7 @@ export function useSocket({ roomCode, userId, userName, role }: UseSocketOptions
 
     return () => {
       socket.disconnect();
+      setSocket(null);
     };
   }, [roomCode, userId, userName, role]);
 
@@ -61,5 +67,5 @@ export function useSocket({ roomCode, userId, userName, role }: UseSocketOptions
     return () => socketRef.current?.off(event, handler);
   }, []);
 
-  return { socket: socketRef.current, members, isConnected, emit, on };
+  return { socket, members, isConnected, emit, on };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 export function useCamera() {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);

@@ -27,8 +27,8 @@ services:
   - type: web
     name: cam-party-socket
     runtime: node
-    buildCommand: npm install socket.io
-    startCommand: node server/socket-server.mjs
+    buildCommand: npm install
+    startCommand: npm run socket
     envVars:
       - key: PORT
         value: "3001"

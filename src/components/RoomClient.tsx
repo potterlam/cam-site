@@ -9,7 +9,7 @@ import VideoTile from "@/components/VideoTile";
 import { DiceGame, RPSGame, RouletteGame } from "@/components/Games";
 import type { RPSMove } from "@/lib/games";
 
-interface RoomData {
+export interface RoomData {
   id: string;
   code: string;
   gameType: string;
@@ -195,7 +195,6 @@ export default function RoomClient({ roomCode, initialRoom, punishments }: RoomC
               {room.gameType === "DICE_COMPARE" && (
                 <DiceGame
                   players={players}
-                  myUserId={myUserId}
                   punishments={punishments}
                   onResult={handleGameResult}
                 />

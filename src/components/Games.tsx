@@ -17,12 +17,11 @@ import {
 // ─── Dice Compare Game ────────────────────────────────────────────────────────
 interface DiceGameProps {
   players: { userId: string; userName: string }[];
-  myUserId: string;
   punishments: Punishment[];
   onResult: (loserId: string, loserName: string, punishment: string) => void;
 }
 
-export function DiceGame({ players, myUserId, punishments, onResult }: DiceGameProps) {
+export function DiceGame({ players, punishments, onResult }: DiceGameProps) {
   function play() {
     const results: PlayerDiceResult[] = players.map((p) => {
       const roll = rollDice();

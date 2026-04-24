@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
-import RoomClient from "@/components/RoomClient";
+import RoomClient, { type RoomData } from "@/components/RoomClient";
 
 type Props = { params: Promise<{ code: string }> };
 
@@ -50,7 +50,7 @@ export default async function RoomPage({ params }: Props) {
   return (
     <RoomClient
       roomCode={code}
-      initialRoom={room as any}
+      initialRoom={room as unknown as RoomData}
       punishments={punishments}
     />
   );
