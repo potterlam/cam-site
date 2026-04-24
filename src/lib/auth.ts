@@ -4,6 +4,7 @@ import Resend from "next-auth/providers/resend";
 import { db } from "@/lib/db";
 
 const config: NextAuthConfig = {
+  trustHost: true,
   adapter: PrismaAdapter(db),
   providers: [
     Resend({
