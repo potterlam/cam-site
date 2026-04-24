@@ -4,11 +4,9 @@ import {
   rollDice,
   diceTotal,
   getDiceLoser,
-  resolveRPS,
   spinRoulette,
   pickRandomPunishment,
   type PlayerDiceResult,
-  type PlayerRPSResult,
   type RoulettePlayer,
   type RPSMove,
   type Punishment,
@@ -18,10 +16,11 @@ import {
 interface DiceGameProps {
   players: { userId: string; userName: string }[];
   punishments: Punishment[];
+  isHost: boolean;
   onResult: (loserId: string, loserName: string, punishment: string) => void;
 }
 
-export function DiceGame({ players, punishments, onResult }: DiceGameProps) {
+export function DiceGame({ players, punishments, isHost, onResult }: DiceGameProps) {
   function play() {
     const results: PlayerDiceResult[] = players.map((p) => {
       const roll = rollDice();
@@ -29,33 +28,32 @@ export function DiceGame({ players, punishments, onResult }: DiceGameProps) {
     });
 
     const losers = getDiceLoser(results);
+    const summary = results.map((r) => `${r.userName}: ${r.roll[0]}+${r.roll[1]}=${r.total}`).join("  |  ");
+
     if (losers.length > 1) {
-      // Tie — announce tie, no punishment
-      alert(`Tie! Players tied with ${losers[0].total}. Re-roll!`);
+      onResult("__tie__", "Tie!", `Tie at ${losers[0].total} — re-roll! (${summary})`);
       return;
     }
 
     const loser = losers[0];
     const punishment = pickRandomPunishment(punishments);
     const punishmentText = punishment?.description ?? "No punishment — lucky!";
-
-    alert(
-      results.map((r) => `${r.userName}: ${r.roll[0]} + ${r.roll[1]} = ${r.total}`).join("\n") +
-        `\n\nLoser: ${loser.userName}\nPunishment: ${punishmentText}`
-    );
-
-    onResult(loser.userId, loser.userName, punishmentText);
+    onResult(loser.userId, loser.userName, `${punishmentText}  [${summary}]`);
   }
 
   return (
     <div className="text-center space-y-4">
       <p className="text-gray-400">Everyone rolls 2 dice. Lowest total loses!</p>
-      <button
-        onClick={play}
-        className="rounded-xl bg-yellow-500 hover:bg-yellow-400 text-black font-bold px-8 py-3 text-lg transition-colors"
-      >
-        🎲 Roll Dice!
-      </button>
+      {isHost ? (
+        <button
+          onClick={play}
+          className="rounded-xl bg-yellow-500 hover:bg-yellow-400 text-black font-bold px-8 py-3 text-lg transition-colors"
+        >
+          🎲 Roll Dice!
+        </button>
+      ) : (
+        <p className="text-gray-500 text-sm animate-pulse">⏳ Waiting for host to roll…</p>
+      )}
     </div>
   );
 }
@@ -64,67 +62,55 @@ export function DiceGame({ players, punishments, onResult }: DiceGameProps) {
 interface RPSGameProps {
   players: { userId: string; userName: string }[];
   myUserId: string;
-  punishments: Punishment[];
-  onResult: (loserId: string, loserName: string, punishment: string) => void;
   onEmitMove: (move: RPSMove) => void;
   pendingMoves: Record<string, RPSMove>;
 }
 
-export function RPSGame({ players, myUserId, punishments, onResult, onEmitMove, pendingMoves }: RPSGameProps) {
+export function RPSGame({ players, myUserId, onEmitMove, pendingMoves }: RPSGameProps) {
   const moves: RPSMove[] = ["rock", "paper", "scissors"];
   const myMove = pendingMoves[myUserId];
-
-  function handleMove(move: RPSMove) {
-    onEmitMove(move);
-  }
-
-  // When all moves are in (handled by parent via socket), resolve
-  const allMoved = players.every((p) => pendingMoves[p.userId]);
-  if (allMoved && players.length > 0) {
-    const results: PlayerRPSResult[] = players.map((p) => ({
-      userId: p.userId,
-      userName: p.userName,
-      move: pendingMoves[p.userId],
-    }));
-
-    const outcome = resolveRPS(results);
-    if (outcome.type === "tie") {
-      // Let parent handle re-play
-    } else {
-      const loser = outcome.losers[0];
-      const punishment = pickRandomPunishment(punishments);
-      onResult(loser.userId, loser.userName, punishment?.description ?? "No punishment");
-    }
-  }
+  const allMoved = players.length > 0 && players.every((p) => pendingMoves[p.userId]);
 
   const LABELS: Record<RPSMove, string> = { rock: "🪨 Rock", paper: "📄 Paper", scissors: "✂️ Scissors" };
+  const EMOJI: Record<RPSMove, string> = { rock: "🪨", paper: "📄", scissors: "✂️" };
 
   return (
     <div className="text-center space-y-4">
       <p className="text-gray-400">Pick your move!</p>
-      <div className="flex gap-3 justify-center">
+      <div className="flex gap-3 justify-center flex-wrap">
         {moves.map((m) => (
           <button
             key={m}
-            onClick={() => handleMove(m)}
+            onClick={() => { if (!myMove) onEmitMove(m); }}
             disabled={!!myMove}
-            className={`rounded-xl px-6 py-3 font-semibold transition-colors ${
+            className={`rounded-xl px-5 py-2.5 font-semibold transition-colors ${
               myMove === m
-                ? "bg-violet-500 text-white"
-                : "bg-gray-800 hover:bg-gray-700 disabled:opacity-50"
+                ? "bg-violet-600 text-white ring-2 ring-violet-400"
+                : "bg-gray-800 hover:bg-gray-700 disabled:opacity-40"
             }`}
           >
             {LABELS[m]}
           </button>
         ))}
       </div>
-      <div className="text-sm text-gray-500">
+
+      {/* Per-player status */}
+      <div className="flex flex-wrap gap-2 justify-center text-xs text-gray-500">
         {players.map((p) => (
-          <span key={p.userId} className="mr-3">
-            {p.userName}: {pendingMoves[p.userId] ? "✅" : "⏳"}
+          <span key={p.userId} className="rounded-full bg-gray-800 px-2 py-1">
+            {p.userName}:{" "}
+            {allMoved
+              ? EMOJI[pendingMoves[p.userId]]
+              : pendingMoves[p.userId]
+              ? "✅"
+              : "⏳"}
           </span>
         ))}
       </div>
+
+      {allMoved && (
+        <p className="text-yellow-400 text-sm animate-pulse">Resolving…</p>
+      )}
     </div>
   );
 }
@@ -133,10 +119,11 @@ export function RPSGame({ players, myUserId, punishments, onResult, onEmitMove, 
 interface RouletteGameProps {
   players: RoulettePlayer[];
   punishments: Punishment[];
+  isHost: boolean;
   onResult: (loserId: string, loserName: string, punishment: string) => void;
 }
 
-export function RouletteGame({ players, punishments, onResult }: RouletteGameProps) {
+export function RouletteGame({ players, punishments, isHost, onResult }: RouletteGameProps) {
   function spin() {
     const loser = spinRoulette(players);
     const punishment = pickRandomPunishment(punishments);
@@ -154,12 +141,16 @@ export function RouletteGame({ players, punishments, onResult }: RouletteGamePro
           </span>
         ))}
       </div>
-      <button
-        onClick={spin}
-        className="rounded-xl bg-pink-600 hover:bg-pink-500 font-bold px-8 py-3 text-lg transition-colors"
-      >
-        🎡 Spin!
-      </button>
+      {isHost ? (
+        <button
+          onClick={spin}
+          className="rounded-xl bg-pink-600 hover:bg-pink-500 font-bold px-8 py-3 text-lg transition-colors"
+        >
+          🎡 Spin!
+        </button>
+      ) : (
+        <p className="text-gray-500 text-sm animate-pulse">⏳ Waiting for host to spin…</p>
+      )}
     </div>
   );
 }

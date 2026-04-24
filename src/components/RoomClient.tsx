@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSocket } from "@/hooks/useSocket";
 import { useCamera } from "@/hooks/useCamera";
@@ -10,7 +10,7 @@ import VideoTile from "@/components/VideoTile";
 import ChatPanel from "@/components/ChatPanel";
 import TimerPanel from "@/components/TimerPanel";
 import { DiceGame, RPSGame, RouletteGame } from "@/components/Games";
-import type { RPSMove } from "@/lib/games";
+import { resolveRPS, pickRandomPunishment, type RPSMove } from "@/lib/games";
 
 export interface RoomData {
   id: string;
@@ -116,9 +116,11 @@ export default function RoomClient({ roomCode, initialRoom, punishments }: RoomC
     const offMoves = on<{ moves: Record<string, RPSMove> }>("game-moves-complete", ({ moves }) => {
       setRpsMoves(moves);
     });
+    const offReset = on("game-reset", () => setRpsMoves({}));
     return () => {
       offResult?.();
       offMoves?.();
+      offReset?.();
     };
   }, [on]);
 
@@ -137,9 +139,41 @@ export default function RoomClient({ roomCode, initialRoom, punishments }: RoomC
     [roomCode, room.gameType, emit]
   );
 
-  const players = room.members
-    .filter((m) => m.role === "PLAYER")
-    .map((m) => ({ userId: m.userId, userName: m.user.name || m.userId }));
+  const isHost = myUserId === room.creatorId;
+
+  const players = useMemo(
+    () =>
+      room.members
+        .filter((m) => m.role === "PLAYER")
+        .map((m) => ({ userId: m.userId, userName: m.user.name || m.userId })),
+    [room.members]
+  );
+
+  // RPS: host resolves result when all players have moved
+  useEffect(() => {
+    if (room.gameType !== "ROCK_PAPER_SCISSORS") return;
+    if (!isHost) return;
+    if (players.length === 0) return;
+    if (gameResult) return; // already resolved
+    const allMoved = players.every((p) => rpsMoves[p.userId]);
+    if (!allMoved) return;
+
+    const results = players.map((p) => ({
+      userId: p.userId,
+      userName: p.userName,
+      move: rpsMoves[p.userId],
+    }));
+    const outcome = resolveRPS(results);
+    if (outcome.type === "tie") {
+      // Reset and let everyone pick again
+      setRpsMoves({});
+      emit("game-reset", { roomCode });
+      return;
+    }
+    const loser = outcome.losers[0];
+    const punishment = pickRandomPunishment(punishments);
+    handleGameResult(loser.userId, loser.userName, punishment?.description ?? "No punishment!");
+  }, [rpsMoves, players, isHost, room.gameType, gameResult, roomCode, punishments, emit, handleGameResult]);
 
   const socketPlayers = members.filter((m) => m.role === "PLAYER");
 
@@ -266,13 +300,14 @@ export default function RoomClient({ roomCode, initialRoom, punishments }: RoomC
             </div>
           )}
 
-          {/* Game Controls — only for players, not spectators */}
+          {/* Game Controls — players see game; spectators see join prompt */}
           {myRole === "PLAYER" && !gameResult && (
             <div className="rounded-xl border border-gray-700 bg-gray-800 p-4 space-y-3">
               {room.gameType === "DICE_COMPARE" && (
                 <DiceGame
                   players={players}
                   punishments={punishments}
+                  isHost={isHost}
                   onResult={handleGameResult}
                 />
               )}
@@ -280,8 +315,6 @@ export default function RoomClient({ roomCode, initialRoom, punishments }: RoomC
                 <RPSGame
                   players={players}
                   myUserId={myUserId}
-                  punishments={punishments}
-                  onResult={handleGameResult}
                   onEmitMove={(move) => emit("game-move", { roomCode, userId: myUserId, move })}
                   pendingMoves={rpsmoves}
                 />
@@ -290,6 +323,7 @@ export default function RoomClient({ roomCode, initialRoom, punishments }: RoomC
                 <RouletteGame
                   players={players}
                   punishments={punishments}
+                  isHost={isHost}
                   onResult={handleGameResult}
                 />
               )}

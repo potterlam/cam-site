@@ -91,6 +91,11 @@ io.on("connection", (socket) => {
     io.to(roomCode).emit("game-result", { loserId, loserName, punishment });
   });
 
+  // Reset a game round (e.g. RPS tie)
+  socket.on("game-reset", ({ roomCode }) => {
+    io.to(roomCode).emit("game-reset");
+  });
+
   // ─── Chat ─────────────────────────────────────────────────────────────────
   socket.on("chat-message", ({ roomCode, userId, userName, text }) => {
     if (!text || typeof text !== "string") return;
