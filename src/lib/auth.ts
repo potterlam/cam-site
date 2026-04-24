@@ -1,9 +1,9 @@
-import NextAuth from "next-auth";
+import NextAuth, { type NextAuthConfig } from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import Resend from "next-auth/providers/resend";
 import { db } from "@/lib/db";
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+const config: NextAuthConfig = {
   adapter: PrismaAdapter(db),
   providers: [
     Resend({
@@ -41,4 +41,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return session;
     },
   },
-});
+};
+
+export const { handlers, auth, signIn, signOut } = NextAuth(config);
