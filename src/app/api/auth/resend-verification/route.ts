@@ -3,16 +3,15 @@ import { db } from "@/lib/db";
 import { randomBytes } from "crypto";
 import { sendVerificationEmail } from "@/lib/email";
 
+const INTERNAL_HOST = /localhost|127\.0\.0\.1|0\.0\.0\.0/;
+
 function getSiteUrl(req: NextRequest): string {
-  if (process.env.SITE_URL) return process.env.SITE_URL.replace(/\/$/, "");
-  if (process.env.RENDER_EXTERNAL_URL) return process.env.RENDER_EXTERNAL_URL.replace(/\/$/, "");
-  if (process.env.NEXTAUTH_URL) return process.env.NEXTAUTH_URL.replace(/\/$/, "");
+  for (const v of [process.env.SITE_URL, process.env.RENDER_EXTERNAL_URL, process.env.NEXTAUTH_URL]) {
+    if (v && !INTERNAL_HOST.test(v)) return v.replace(/\/$/, "");
+  }
   const proto = req.headers.get("x-forwarded-proto") ?? "https";
-  const fwdHost = req.headers.get("x-forwarded-host");
-  const rawHost = req.headers.get("host") ?? "";
-  const host = fwdHost ?? rawHost;
-  const isInternal = !host || /localhost|127\.0\.0\.1|0\.0\.0\.0/.test(host);
-  if (!isInternal) return `${proto}://${host}`;
+  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "";
+  if (host && !INTERNAL_HOST.test(host)) return `${proto}://${host}`;
   return "https://live-party-game.onrender.com";
 }
 
