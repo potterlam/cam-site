@@ -8,8 +8,12 @@ function getSiteUrl(req: NextRequest): string {
   if (process.env.RENDER_EXTERNAL_URL) return process.env.RENDER_EXTERNAL_URL.replace(/\/$/, "");
   if (process.env.NEXTAUTH_URL) return process.env.NEXTAUTH_URL.replace(/\/$/, "");
   const proto = req.headers.get("x-forwarded-proto") ?? "https";
-  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "localhost:3000";
-  return `${proto}://${host}`;
+  const fwdHost = req.headers.get("x-forwarded-host");
+  const rawHost = req.headers.get("host") ?? "";
+  const host = fwdHost ?? rawHost;
+  const isInternal = !host || /localhost|127\.0\.0\.1|0\.0\.0\.0/.test(host);
+  if (!isInternal) return `${proto}://${host}`;
+  return "https://live-party-game.onrender.com";
 }
 
 export async function POST(req: NextRequest) {

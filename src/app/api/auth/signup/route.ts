@@ -5,13 +5,18 @@ import { randomBytes } from "crypto";
 import { sendVerificationEmail } from "@/lib/email";
 
 function getSiteUrl(req: NextRequest): string {
-  // Priority: manually set SITE_URL > RENDER_EXTERNAL_URL > NEXTAUTH_URL > headers
   if (process.env.SITE_URL) return process.env.SITE_URL.replace(/\/$/, "");
   if (process.env.RENDER_EXTERNAL_URL) return process.env.RENDER_EXTERNAL_URL.replace(/\/$/, "");
   if (process.env.NEXTAUTH_URL) return process.env.NEXTAUTH_URL.replace(/\/$/, "");
+  // Use forwarded headers — reject internal/localhost hosts
   const proto = req.headers.get("x-forwarded-proto") ?? "https";
-  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "localhost:3000";
-  return `${proto}://${host}`;
+  const fwdHost = req.headers.get("x-forwarded-host");
+  const rawHost = req.headers.get("host") ?? "";
+  const host = fwdHost ?? rawHost;
+  const isInternal = !host || /localhost|127\.0\.0\.1|0\.0\.0\.0/.test(host);
+  if (!isInternal) return `${proto}://${host}`;
+  // Hard fallback so emails never contain localhost
+  return "https://live-party-game.onrender.com";
 }
 
 export async function POST(req: NextRequest) {
@@ -34,6 +39,21 @@ export async function POST(req: NextRequest) {
 
     const existing = await db.user.findUnique({ where: { email } });
     if (existing) {
+      // Account exists but not verified — resend verification instead of 409
+      if (!existing.emailVerified) {
+        await db.verificationToken.deleteMany({ where: { identifier: email } });
+        const token = randomBytes(32).toString("hex");
+        const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        await db.verificationToken.create({ data: { identifier: email, token, expires } });
+        const baseUrl = getSiteUrl(req);
+        console.log("[Signup/Resend] Using baseUrl:", baseUrl);
+        let emailSent = true;
+        try { await sendVerificationEmail(email, token, baseUrl); } catch { emailSent = false; }
+        return NextResponse.json(
+          { ok: true, userId: existing.id, emailSent, resent: true },
+          { status: 200 }
+        );
+      }
       return NextResponse.json(
         { error: "An account with this email already exists." },
         { status: 409 }
