@@ -2,12 +2,17 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 
-// GET /api/punishments — list all punishment sets
+// GET /api/punishments — list all punishment sets with shuffled punishments
 export async function GET() {
   const sets = await db.punishmentSet.findMany({
-    include: { punishments: { orderBy: { order: "asc" } } },
+    include: { punishments: true },
   });
-  return NextResponse.json(sets);
+  // Shuffle punishments within each set
+  const shuffled = sets.map((s) => ({
+    ...s,
+    punishments: s.punishments.sort(() => Math.random() - 0.5),
+  }));
+  return NextResponse.json(shuffled);
 }
 
 // POST /api/punishments — create a new punishment set
