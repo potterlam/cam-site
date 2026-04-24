@@ -107,22 +107,27 @@ export default function RoomClient({ roomCode, initialRoom, punishments }: RoomC
     router.push("/");
   }, [roomCode, router]);
 
-  // Listen for game events
+  // Listen for game events — depend on `socket` so listeners are re-registered
+  // whenever the socket reconnects (e.g. after a role change).
   useEffect(() => {
-    const offResult = on<{ loserId: string; loserName: string; punishment: string }>(
-      "game-result",
-      (data) => setGameResult(data)
-    );
-    const offMoves = on<{ moves: Record<string, RPSMove> }>("game-moves-complete", ({ moves }) => {
+    if (!socket) return;
+
+    const handleResult = (data: { loserId: string; loserName: string; punishment: string }) =>
+      setGameResult(data);
+    const handleMoves = ({ moves }: { moves: Record<string, RPSMove> }) =>
       setRpsMoves(moves);
-    });
-    const offReset = on("game-reset", () => setRpsMoves({}));
+    const handleReset = () => setRpsMoves({});
+
+    socket.on("game-result", handleResult);
+    socket.on("game-moves-complete", handleMoves);
+    socket.on("game-reset", handleReset);
+
     return () => {
-      offResult?.();
-      offMoves?.();
-      offReset?.();
+      socket.off("game-result", handleResult);
+      socket.off("game-moves-complete", handleMoves);
+      socket.off("game-reset", handleReset);
     };
-  }, [on]);
+  }, [socket]);
 
   const handleGameResult = useCallback(
     async (loserId: string, loserName: string, punishment: string) => {
