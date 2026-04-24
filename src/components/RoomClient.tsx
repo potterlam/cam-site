@@ -48,7 +48,7 @@ export default function RoomClient({ roomCode, initialRoom, punishments }: RoomC
     loserName: string;
     punishment: string;
   } | null>(null);
-  const [rpsmoves, setRpsMoves] = useState<Record<string, RPSMove>>({});
+  const [rpsMoves, setRpsMoves] = useState<Record<string, RPSMove>>({});
   const [roleLoading, setRoleLoading] = useState(false);
 
   const myUserId = session?.user?.id ?? "";
