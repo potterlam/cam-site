@@ -30,6 +30,11 @@ const config: NextAuthConfig = {
         );
         if (!passwordMatch) return null;
 
+        // Block login if email is not verified
+        if (!user.emailVerified) {
+          throw new Error("EMAIL_NOT_VERIFIED");
+        }
+
         return { id: user.id, email: user.email, name: user.name };
       },
     }),

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { randomBytes } from "crypto";
+import { sendVerificationEmail } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
   try {
@@ -30,16 +32,30 @@ export async function POST(req: NextRequest) {
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
+    // Create user with emailVerified = null (unverified)
     const user = await db.user.create({
       data: {
         name,
         email,
         password: hashedPassword,
+        emailVerified: null,
       },
     });
 
+    // Generate a secure verification token (24h expiry)
+    const token = randomBytes(32).toString("hex");
+    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    // Store token in VerificationToken table
+    await db.verificationToken.create({
+      data: { identifier: email, token, expires },
+    });
+
+    // Send verification email via Resend
+    await sendVerificationEmail(email, token);
+
     return NextResponse.json(
-      { ok: true, userId: user.id },
+      { ok: true, userId: user.id, message: "Please check your email to verify your account." },
       { status: 201 }
     );
   } catch (err) {
@@ -48,5 +64,7 @@ export async function POST(req: NextRequest) {
       { error: "Internal server error." },
       { status: 500 }
     );
+  }
+}
   }
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import { signIn } from "next-auth/react";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -29,7 +28,7 @@ export default function SignUpPage() {
 
     setLoading(true);
 
-    // 1. Register the user
+    // Register the user (server will send verification email via Resend)
     const res = await fetch("/api/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -37,29 +36,15 @@ export default function SignUpPage() {
     });
 
     const data = await res.json();
+    setLoading(false);
 
     if (!res.ok) {
       setError(data.error ?? "Registration failed.");
-      setLoading(false);
       return;
     }
 
-    // 2. Auto sign-in after registration
-    const result = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
-
-    setLoading(false);
-
-    if (result?.error) {
-      setError("Account created but sign-in failed. Please sign in manually.");
-      router.push("/auth/signin");
-    } else {
-      router.push("/");
-      router.refresh();
-    }
+    // Redirect to check-email page — user must verify before signing in
+    router.push("/auth/check-email");
   }
 
   return (
