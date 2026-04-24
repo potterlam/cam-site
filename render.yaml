@@ -1,0 +1,36 @@
+services:
+  # ─── Next.js Web App ─────────────────────────────────────────────────────────
+  - type: web
+    name: cam-party-game
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: AUTH_SECRET
+        sync: false
+      - key: NEXTAUTH_URL
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      - key: NEXT_PUBLIC_SOCKET_URL
+        sync: false
+      - key: NODE_ENV
+        value: production
+
+  # ─── Socket.io Server ─────────────────────────────────────────────────────────
+  - type: web
+    name: cam-party-socket
+    runtime: node
+    buildCommand: npm install socket.io
+    startCommand: node server/socket-server.mjs
+    envVars:
+      - key: PORT
+        value: "3001"
+      - key: ALLOWED_ORIGINS
+        sync: false
