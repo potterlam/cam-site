@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { randomBytes } from "crypto";
-import { sendPasswordResetEmail } from "@/lib/email";
+import { sendVerificationEmail } from "@/lib/email";
 
 function getSiteUrl(req: NextRequest): string {
   if (process.env.SITE_URL) return process.env.SITE_URL.replace(/\/$/, "");
@@ -22,32 +22,31 @@ export async function POST(req: NextRequest) {
 
     const user = await db.user.findUnique({ where: { email } });
 
-    // Always return success to prevent email enumeration attacks
     if (!user) {
-      return NextResponse.json({ ok: true });
+      return NextResponse.json({ error: "No account found with this email." }, { status: 404 });
     }
 
-    // Generate a secure reset token valid for 1 hour
+    if (user.emailVerified) {
+      return NextResponse.json({ error: "This account is already verified." }, { status: 400 });
+    }
+
+    // Delete old tokens for this email
+    await db.verificationToken.deleteMany({ where: { identifier: email } });
+
+    // Generate a new token
     const token = randomBytes(32).toString("hex");
-    const expires = new Date(Date.now() + 60 * 60 * 1000);
-
-    // Use "reset:email" prefix to distinguish from email verification tokens
-    const identifier = `reset:${email}`;
-
-    // Remove any existing reset tokens for this email
-    await db.verificationToken.deleteMany({ where: { identifier } });
-
+    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
     await db.verificationToken.create({
-      data: { identifier, token, expires },
+      data: { identifier: email, token, expires },
     });
 
     const baseUrl = getSiteUrl(req);
-    console.log("[ForgotPassword] Using baseUrl:", baseUrl);
-    await sendPasswordResetEmail(email, token, baseUrl);
+    console.log("[ResendVerification] Using baseUrl:", baseUrl);
+    await sendVerificationEmail(email, token, baseUrl);
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("[ForgotPassword] Error:", err);
+    console.error("[ResendVerification] Error:", err);
     return NextResponse.json({ error: "Internal server error." }, { status: 500 });
   }
 }

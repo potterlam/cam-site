@@ -4,6 +4,16 @@ import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 import { sendVerificationEmail } from "@/lib/email";
 
+function getSiteUrl(req: NextRequest): string {
+  // Priority: manually set SITE_URL > RENDER_EXTERNAL_URL > NEXTAUTH_URL > headers
+  if (process.env.SITE_URL) return process.env.SITE_URL.replace(/\/$/, "");
+  if (process.env.RENDER_EXTERNAL_URL) return process.env.RENDER_EXTERNAL_URL.replace(/\/$/, "");
+  if (process.env.NEXTAUTH_URL) return process.env.NEXTAUTH_URL.replace(/\/$/, "");
+  const proto = req.headers.get("x-forwarded-proto") ?? "https";
+  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "localhost:3000";
+  return `${proto}://${host}`;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { name, email, password } = await req.json();
@@ -32,35 +42,31 @@ export async function POST(req: NextRequest) {
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Create user with emailVerified = null (unverified)
+    // Step 1: Create user
     const user = await db.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        emailVerified: null,
-      },
+      data: { name, email, password: hashedPassword, emailVerified: null },
     });
 
-    // Generate a secure verification token (24h expiry)
+    // Step 2: Generate token
     const token = randomBytes(32).toString("hex");
     const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-    // Store token in VerificationToken table
     await db.verificationToken.create({
       data: { identifier: email, token, expires },
     });
 
-    // Send verification email via Resend
-    // RENDER_EXTERNAL_URL is auto-injected by Render (e.g. https://live-party-game.onrender.com)
-    const baseUrl =
-      process.env.RENDER_EXTERNAL_URL ??
-      process.env.NEXTAUTH_URL ??
-      `${req.headers.get("x-forwarded-proto") ?? "https"}://${req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "localhost:3000"}`;
-    await sendVerificationEmail(email, token, baseUrl);
+    // Step 3: Try to send email — failure does NOT block account creation
+    const baseUrl = getSiteUrl(req);
+    console.log("[Signup] Using baseUrl:", baseUrl);
+    let emailSent = true;
+    try {
+      await sendVerificationEmail(email, token, baseUrl);
+    } catch (emailErr) {
+      emailSent = false;
+      console.error("[Signup] Email send failed (account still created):", emailErr);
+    }
 
     return NextResponse.json(
-      { ok: true, userId: user.id, message: "Please check your email to verify your account." },
+      { ok: true, userId: user.id, emailSent },
       { status: 201 }
     );
   } catch (err) {
