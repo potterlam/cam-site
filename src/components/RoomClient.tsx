@@ -8,6 +8,7 @@ import { useCamera } from "@/hooks/useCamera";
 import { useWebRTC } from "@/hooks/useWebRTC";
 import VideoTile from "@/components/VideoTile";
 import ChatPanel from "@/components/ChatPanel";
+import TimerPanel from "@/components/TimerPanel";
 import { DiceGame, RPSGame, RouletteGame } from "@/components/Games";
 import type { RPSMove } from "@/lib/games";
 
@@ -307,6 +308,9 @@ export default function RoomClient({ roomCode, initialRoom, punishments }: RoomC
               </button>
             </div>
           )}
+
+          {/* Timer */}
+          <TimerPanel />
 
           {/* Member list */}
           <div className="shrink-0">
