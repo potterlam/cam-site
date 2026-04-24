@@ -141,13 +141,19 @@ export default function RoomClient({ roomCode, initialRoom, punishments }: RoomC
 
   const isHost = myUserId === room.creatorId;
 
-  const players = useMemo(
-    () =>
-      room.members
-        .filter((m) => m.role === "PLAYER")
-        .map((m) => ({ userId: m.userId, userName: m.user.name || m.userId })),
-    [room.members]
-  );
+  // Use live socket members so player pool updates without refresh.
+  // Fall back to initialRoom members while socket is still connecting.
+  const players = useMemo(() => {
+    const src = members.length > 0 ? members : room.members.map((m) => ({
+      userId: m.userId,
+      userName: m.user.name || m.userId,
+      role: m.role as "PLAYER" | "SPECTATOR",
+      socketId: "",
+    }));
+    return src
+      .filter((m) => m.role === "PLAYER")
+      .map((m) => ({ userId: m.userId, userName: (m as { userName?: string }).userName || (m as { user?: { name?: string | null } }).user?.name || m.userId }));
+  }, [members, room.members]);
 
   // RPS: host resolves result when all players have moved
   useEffect(() => {
@@ -179,6 +185,35 @@ export default function RoomClient({ roomCode, initialRoom, punishments }: RoomC
 
   return (
     <div className="flex flex-col h-screen bg-gray-950 text-white">
+      {/* ─── Game Result Modal ─────────────────────────────────────────── */}
+      {gameResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm">
+          <div className="relative w-full max-w-sm mx-4 rounded-2xl border border-orange-600 bg-gray-900 shadow-2xl p-8 text-center space-y-4">
+            {gameResult.loserId === "__tie__" ? (
+              <>
+                <p className="text-5xl">🤝</p>
+                <h2 className="text-2xl font-bold text-yellow-400">Tie!</h2>
+                <p className="text-gray-300 text-sm">{gameResult.punishment}</p>
+              </>
+            ) : (
+              <>
+                <p className="text-5xl">😅</p>
+                <h2 className="text-2xl font-bold text-orange-400">{gameResult.loserName} loses!</h2>
+                <div className="rounded-xl bg-gray-800 px-4 py-3">
+                  <p className="text-xs text-gray-500 mb-1">Punishment</p>
+                  <p className="text-white font-semibold">{gameResult.punishment}</p>
+                </div>
+              </>
+            )}
+            <button
+              onClick={() => { setGameResult(null); setRpsMoves({}); }}
+              className="w-full rounded-xl bg-violet-700 hover:bg-violet-600 py-2.5 font-semibold transition-colors"
+            >
+              Next Round ▶
+            </button>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-3 border-b border-gray-800 bg-gray-900">
         <div>
@@ -284,19 +319,10 @@ export default function RoomClient({ roomCode, initialRoom, punishments }: RoomC
         <aside className="w-80 border-l border-gray-800 bg-gray-900 flex flex-col p-4 gap-4 overflow-hidden">
           <h2 className="font-bold text-lg shrink-0">Game Panel</h2>
 
-          {/* Game Result Banner */}
+          {/* Game Result — handled by fullscreen modal above, show small replay prompt in sidebar */}
           {gameResult && (
-            <div className="rounded-xl border border-orange-700 bg-orange-900/30 p-4 text-center space-y-2">
-              <p className="text-orange-300 font-bold text-lg">😅 {gameResult.loserName} loses!</p>
-              <p className="text-sm text-gray-300">
-                Punishment: <span className="font-semibold text-white">{gameResult.punishment}</span>
-              </p>
-              <button
-                onClick={() => { setGameResult(null); setRpsMoves({}); }}
-                className="text-xs text-gray-500 underline"
-              >
-                Clear
-              </button>
+            <div className="rounded-xl border border-gray-700 bg-gray-800/60 p-3 text-center">
+              <p className="text-xs text-gray-500">Round finished — see results popup</p>
             </div>
           )}
 
@@ -316,7 +342,7 @@ export default function RoomClient({ roomCode, initialRoom, punishments }: RoomC
                   players={players}
                   myUserId={myUserId}
                   onEmitMove={(move) => emit("game-move", { roomCode, userId: myUserId, move })}
-                  pendingMoves={rpsmoves}
+                  pendingMoves={rpsMoves}
                 />
               )}
               {room.gameType === "ROULETTE" && (
