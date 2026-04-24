@@ -1,49 +1,58 @@
 import NextAuth, { type NextAuthConfig } from "next-auth";
+import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import Resend from "next-auth/providers/resend";
 import { db } from "@/lib/db";
+import bcrypt from "bcryptjs";
 
 const config: NextAuthConfig = {
   trustHost: true,
   adapter: PrismaAdapter(db),
+  session: { strategy: "jwt" },
   providers: [
-    Resend({
-      apiKey: process.env.RESEND_API_KEY,
-      from: process.env.RESEND_FROM_EMAIL,
-      sendVerificationRequest: async ({ identifier, url, provider }) => {
-        const { Resend: ResendClient } = await import("resend");
-        const resend = new ResendClient(provider.apiKey);
-        const { error } = await resend.emails.send({
-          from: provider.from!,
-          to: identifier,
-          subject: "Sign in to Cam Party Game",
-          html: `
-            <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;border:1px solid #eee;border-radius:12px">
-              <h2 style="color:#7c3aed">🎮 Cam Party Game</h2>
-              <p>Click the button below to sign in. This link expires in 24 hours.</p>
-              <a href="${url}" style="display:inline-block;background:#7c3aed;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;margin:16px 0">
-                Sign In
-              </a>
-              <p style="color:#999;font-size:12px">If you didn't request this, you can safely ignore this email.</p>
-            </div>
-          `,
+    Credentials({
+      name: "credentials",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) return null;
+
+        const user = await db.user.findUnique({
+          where: { email: credentials.email as string },
         });
-        if (error) {
-          console.error("[Resend] Failed to send email to", identifier, error);
-          throw new Error(`Email send failed: ${error.message}`);
-        }
-        console.log("[Resend] Verification email sent to", identifier);
+
+        if (!user || !user.password) return null;
+
+        const passwordMatch = await bcrypt.compare(
+          credentials.password as string,
+          user.password
+        );
+        if (!passwordMatch) return null;
+
+        return { id: user.id, email: user.email, name: user.name };
       },
     }),
   ],
   pages: {
     signIn: "/auth/signin",
-    verifyRequest: "/auth/verify",
     error: "/auth/error",
   },
   callbacks: {
-    session({ session, user }) {
-      session.user.id = user.id;
+    jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+        token.email = user.email;
+        token.name = user.name;
+      }
+      return token;
+    },
+    session({ session, token }) {
+      if (token && session.user) {
+        session.user.id = token.id as string;
+        session.user.email = token.email as string;
+        session.user.name = token.name as string;
+      }
       return session;
     },
   },
