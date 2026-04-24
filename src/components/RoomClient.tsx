@@ -2,6 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useSocket } from "@/hooks/useSocket";
 import { useCamera } from "@/hooks/useCamera";
 import { useWebRTC } from "@/hooks/useWebRTC";
@@ -38,13 +39,15 @@ interface RoomClientProps {
 
 export default function RoomClient({ roomCode, initialRoom, punishments }: RoomClientProps) {
   const { data: session } = useSession();
-  const [room] = useState(initialRoom);
+  const router = useRouter();
+  const [room, setRoom] = useState(initialRoom);
   const [gameResult, setGameResult] = useState<{
     loserId: string;
     loserName: string;
     punishment: string;
   } | null>(null);
   const [rpsmoves, setRpsMoves] = useState<Record<string, RPSMove>>({});
+  const [roleLoading, setRoleLoading] = useState(false);
 
   const myUserId = session?.user?.id ?? "";
   const myMember = room.members.find((m) => m.userId === myUserId);
@@ -65,6 +68,42 @@ export default function RoomClient({ roomCode, initialRoom, punishments }: RoomC
     mySocketId: socket?.id ?? "",
     members: members.filter((m) => m.role === "PLAYER"),
   });
+
+  // Change role
+  const handleChangeRole = useCallback(async (newRole: "PLAYER" | "SPECTATOR") => {
+    setRoleLoading(true);
+    const res = await fetch(`/api/rooms/${roomCode}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role: newRole }),
+    });
+    if (res.ok) {
+      setRoom((prev) => ({
+        ...prev,
+        members: prev.members.map((m) =>
+          m.userId === myUserId ? { ...m, role: newRole } : m
+        ),
+      }));
+    }
+    setRoleLoading(false);
+  }, [roomCode, myUserId]);
+
+  // Leave room
+  const handleLeave = useCallback(async () => {
+    await fetch(`/api/rooms/${roomCode}`, { method: "DELETE" });
+    router.push("/");
+  }, [roomCode, router]);
+
+  // Close room (host only)
+  const handleCloseRoom = useCallback(async () => {
+    if (!confirm("Close this room for everyone?")) return;
+    await fetch(`/api/rooms/${roomCode}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "close" }),
+    });
+    router.push("/");
+  }, [roomCode, router]);
 
   // Listen for game events
   useEffect(() => {
@@ -114,6 +153,42 @@ export default function RoomClient({ roomCode, initialRoom, punishments }: RoomC
           <span className={`text-xs px-2 py-1 rounded-full ${isConnected ? "bg-green-900 text-green-300" : "bg-red-900 text-red-300"}`}>
             {isConnected ? "● Live" : "○ Connecting"}
           </span>
+          {/* Join as Player */}
+          {myRole === "SPECTATOR" && (
+            <button
+              onClick={() => handleChangeRole("PLAYER")}
+              disabled={roleLoading}
+              className="text-xs px-3 py-1 rounded-full bg-violet-700 hover:bg-violet-600 disabled:opacity-50 transition-colors"
+            >
+              🎮 Join as Player
+            </button>
+          )}
+          {/* Switch to Spectator */}
+          {myRole === "PLAYER" && myUserId !== room.creatorId && (
+            <button
+              onClick={() => handleChangeRole("SPECTATOR")}
+              disabled={roleLoading}
+              className="text-xs px-3 py-1 rounded-full bg-gray-700 hover:bg-gray-600 disabled:opacity-50 transition-colors"
+            >
+              👁️ Watch Only
+            </button>
+          )}
+          {/* Close Room — host only */}
+          {myUserId === room.creatorId && (
+            <button
+              onClick={handleCloseRoom}
+              className="text-xs px-3 py-1 rounded-full bg-red-800 hover:bg-red-700 transition-colors"
+            >
+              🔴 Close Room
+            </button>
+          )}
+          {/* Leave Room */}
+          <button
+            onClick={handleLeave}
+            className="text-xs px-3 py-1 rounded-full bg-gray-800 hover:bg-gray-700 transition-colors"
+          >
+            🚪 Leave
+          </button>
         </div>
       </header>
 
@@ -220,7 +295,16 @@ export default function RoomClient({ roomCode, initialRoom, punishments }: RoomC
           )}
 
           {myRole === "SPECTATOR" && (
-            <p className="text-gray-600 text-sm text-center">You are watching as a spectator.</p>
+            <div className="text-center space-y-3">
+              <p className="text-gray-500 text-sm">You are watching as a spectator.</p>
+              <button
+                onClick={() => handleChangeRole("PLAYER")}
+                disabled={roleLoading}
+                className="w-full rounded-xl bg-violet-700 hover:bg-violet-600 disabled:opacity-50 py-2 text-sm font-semibold transition-colors"
+              >
+                🎮 Join as Player
+              </button>
+            </div>
           )}
 
           {/* Member list */}
